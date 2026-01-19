@@ -43,6 +43,8 @@ const (
 	stateHelp
 	// stateConfirm is the state when a confirmation modal is displayed.
 	stateConfirm
+	// stateModelSelection is the state when a model selection modal is displayed.
+	stateModelSelection
 )
 
 type home struct {
@@ -92,6 +94,8 @@ type home struct {
 	textOverlay *overlay.TextOverlay
 	// confirmationOverlay displays confirmation modals
 	confirmationOverlay *overlay.ConfirmationOverlay
+	// modelSelectionOverlay displays model selection modal
+	modelSelectionOverlay *overlay.ModelSelectionOverlay
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
@@ -271,7 +275,7 @@ func (m *home) handleMenuHighlighting(msg tea.KeyMsg) (cmd tea.Cmd, returnEarly 
 		m.keySent = false
 		return nil, false
 	}
-	if m.state == statePrompt || m.state == stateHelp || m.state == stateConfirm {
+	if m.state == statePrompt || m.state == stateHelp || m.state == stateConfirm || m.state == stateModelSelection {
 		return nil, false
 	}
 	// If it's in the global keymap, we should try to highlight it.
@@ -439,6 +443,23 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m, nil
 	}
 
+	// Handle model selection state
+	if m.state == stateModelSelection {
+		shouldClose := m.modelSelectionOverlay.HandleKeyPress(msg)
+		if shouldClose {
+			m.state = stateDefault
+			selectedModel := m.modelSelectionOverlay.GetSelectedModel()
+			m.modelSelectionOverlay = nil
+			
+			// If a model was selected (not cancelled), create instance with that model
+			if selectedModel != "" {
+				return m.createNewInstanceWithModel(selectedModel)
+			}
+			return m, nil
+		}
+		return m, nil
+	}
+
 	// Exit scrolling mode when ESC is pressed and preview pane is in scrolling mode
 	// Check if Escape key was pressed and we're not in the diff tab (meaning we're in preview tab)
 	// Always check for escape key first to ensure it doesn't get intercepted elsewhere
@@ -494,19 +515,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, m.handleError(
 				fmt.Errorf("you can't create more than %d instances", GlobalInstanceLimit))
 		}
-		instance, err := session.NewInstance(session.InstanceOptions{
-			Title:   "",
-			Path:    ".",
-			Program: m.program,
-		})
-		if err != nil {
-			return m, m.handleError(err)
-		}
-
-		m.newInstanceFinalizer = m.list.AddInstance(instance)
-		m.list.SetSelectedInstance(m.list.NumInstances() - 1)
-		m.state = stateNew
-		m.menu.SetState(ui.StateNewInstance)
+		// Show model selection modal instead of directly creating instance
+		m.state = stateModelSelection
+		m.modelSelectionOverlay = overlay.NewModelSelectionOverlay()
+		m.modelSelectionOverlay.SetWidth(50)
 
 		return m, nil
 	case keys.KeyUp:
@@ -721,6 +733,31 @@ func (m *home) confirmAction(message string, action tea.Cmd) tea.Cmd {
 	return nil
 }
 
+// createNewInstanceWithModel creates a new instance with the specified model program
+func (m *home) createNewInstanceWithModel(model string) (tea.Model, tea.Cmd) {
+	// Determine the program command based on the model
+	programCmd := m.program
+	if model == "claude" {
+		programCmd = "claude --dangerously-skip-permissions"
+	}
+
+	instance, err := session.NewInstance(session.InstanceOptions{
+		Title:   "",
+		Path:    ".",
+		Program: programCmd,
+	})
+	if err != nil {
+		return m, m.handleError(err)
+	}
+
+	m.newInstanceFinalizer = m.list.AddInstance(instance)
+	m.list.SetSelectedInstance(m.list.NumInstances() - 1)
+	m.state = stateNew
+	m.menu.SetState(ui.StateNewInstance)
+
+	return m, nil
+}
+
 func (m *home) View() string {
 	listWithPadding := lipgloss.NewStyle().PaddingTop(1).Render(m.list.String())
 	previewWithPadding := lipgloss.NewStyle().PaddingTop(1).Render(m.tabbedWindow.String())
@@ -748,6 +785,11 @@ func (m *home) View() string {
 			log.ErrorLog.Printf("confirmation overlay is nil")
 		}
 		return overlay.PlaceOverlay(0, 0, m.confirmationOverlay.Render(), mainView, true, true)
+	} else if m.state == stateModelSelection {
+		if m.modelSelectionOverlay == nil {
+			log.ErrorLog.Printf("model selection overlay is nil")
+		}
+		return overlay.PlaceOverlay(0, 0, m.modelSelectionOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView
