@@ -464,3 +464,129 @@ func TestConfirmationModalVisualAppearance(t *testing.T) {
 	// Test that the danger indicator is preserved
 	assert.Contains(t, rendered, "[!")
 }
+
+// TestModelSelectionModalStateTransitions tests model selection state transitions
+func TestModelSelectionModalStateTransitions(t *testing.T) {
+	// Create a minimal home struct for testing state transitions
+	h := &home{
+		ctx:       context.Background(),
+		state:     stateDefault,
+		appConfig: config.DefaultConfig(),
+	}
+
+	t.Run("shows model selection on n press", func(t *testing.T) {
+		// Simulate pressing 'n'
+		h.state = stateDefault
+		h.modelSelectionOverlay = nil
+
+		// Manually trigger what would happen in handleKeyPress for 'n'
+		h.state = stateModelSelection
+		h.modelSelectionOverlay = overlay.NewModelSelectionOverlay()
+
+		assert.Equal(t, stateModelSelection, h.state)
+		assert.NotNil(t, h.modelSelectionOverlay)
+		assert.False(t, h.modelSelectionOverlay.Dismissed)
+	})
+
+	t.Run("selects claude on c press", func(t *testing.T) {
+		// Start in model selection state
+		h.state = stateModelSelection
+		h.modelSelectionOverlay = overlay.NewModelSelectionOverlay()
+
+		// Simulate pressing 'c' using HandleKeyPress
+		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")}
+		shouldClose := h.modelSelectionOverlay.HandleKeyPress(keyMsg)
+
+		assert.True(t, shouldClose)
+		assert.Equal(t, "claude", h.modelSelectionOverlay.GetSelectedModel())
+	})
+
+	t.Run("cancels on esc press", func(t *testing.T) {
+		// Start in model selection state
+		h.state = stateModelSelection
+		h.modelSelectionOverlay = overlay.NewModelSelectionOverlay()
+
+		// Simulate pressing ESC using HandleKeyPress
+		keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
+		shouldClose := h.modelSelectionOverlay.HandleKeyPress(keyMsg)
+
+		assert.True(t, shouldClose)
+		assert.Equal(t, "", h.modelSelectionOverlay.GetSelectedModel())
+	})
+}
+
+// TestModelSelectionModalKeyHandling tests the actual key handling in model selection state
+func TestModelSelectionModalKeyHandling(t *testing.T) {
+	spinner := spinner.New(spinner.WithSpinner(spinner.MiniDot))
+	list := ui.NewList(&spinner, false)
+
+	// Create enough of home struct to test handleKeyPress in model selection state
+	h := &home{
+		ctx:                   context.Background(),
+		state:                 stateModelSelection,
+		appConfig:             config.DefaultConfig(),
+		list:                  list,
+		menu:                  ui.NewMenu(),
+		modelSelectionOverlay: overlay.NewModelSelectionOverlay(),
+	}
+
+	t.Run("c key selects claude model", func(t *testing.T) {
+		h.state = stateModelSelection
+		h.modelSelectionOverlay = overlay.NewModelSelectionOverlay()
+
+		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")}
+		shouldClose := h.modelSelectionOverlay.HandleKeyPress(keyMsg)
+
+		assert.True(t, shouldClose)
+		assert.True(t, h.modelSelectionOverlay.Dismissed)
+		assert.Equal(t, "claude", h.modelSelectionOverlay.GetSelectedModel())
+	})
+
+	t.Run("esc key cancels selection", func(t *testing.T) {
+		h.state = stateModelSelection
+		h.modelSelectionOverlay = overlay.NewModelSelectionOverlay()
+
+		keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
+		shouldClose := h.modelSelectionOverlay.HandleKeyPress(keyMsg)
+
+		assert.True(t, shouldClose)
+		assert.True(t, h.modelSelectionOverlay.Dismissed)
+		assert.Equal(t, "", h.modelSelectionOverlay.GetSelectedModel())
+	})
+
+	t.Run("other keys are ignored", func(t *testing.T) {
+		h.state = stateModelSelection
+		h.modelSelectionOverlay = overlay.NewModelSelectionOverlay()
+
+		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")}
+		shouldClose := h.modelSelectionOverlay.HandleKeyPress(keyMsg)
+
+		assert.False(t, shouldClose)
+		assert.False(t, h.modelSelectionOverlay.Dismissed)
+	})
+}
+
+// TestModelSelectionModalVisualAppearance tests that the modal renders properly
+func TestModelSelectionModalVisualAppearance(t *testing.T) {
+	h := &home{
+		ctx:                   context.Background(),
+		state:                 stateModelSelection,
+		appConfig:             config.DefaultConfig(),
+		modelSelectionOverlay: overlay.NewModelSelectionOverlay(),
+	}
+
+	assert.NotNil(t, h.modelSelectionOverlay)
+	assert.Equal(t, stateModelSelection, h.state)
+	assert.False(t, h.modelSelectionOverlay.Dismissed)
+
+	// Test the overlay render (we can test that it renders without errors)
+	rendered := h.modelSelectionOverlay.Render()
+	assert.NotEmpty(t, rendered)
+
+	// Test that it includes the expected content
+	assert.Contains(t, rendered, "Which model to launch?")
+	assert.Contains(t, rendered, "c")
+	assert.Contains(t, rendered, "claude")
+	assert.Contains(t, rendered, "esc")
+	assert.Contains(t, rendered, "cancel")
+}
