@@ -496,7 +496,7 @@ func TestModelSelectionModalStateTransitions(t *testing.T) {
 		// Simulate pressing 'c' using HandleKeyPress
 		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")}
 		shouldClose := h.modelSelectionOverlay.HandleKeyPress(keyMsg)
-		
+
 		assert.True(t, shouldClose)
 		assert.Equal(t, "claude", h.modelSelectionOverlay.GetSelectedModel())
 	})
@@ -509,7 +509,7 @@ func TestModelSelectionModalStateTransitions(t *testing.T) {
 		// Simulate pressing ESC using HandleKeyPress
 		keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
 		shouldClose := h.modelSelectionOverlay.HandleKeyPress(keyMsg)
-		
+
 		assert.True(t, shouldClose)
 		assert.Equal(t, "", h.modelSelectionOverlay.GetSelectedModel())
 	})
@@ -590,4 +590,3 @@ func TestModelSelectionModalVisualAppearance(t *testing.T) {
 	assert.Contains(t, rendered, "esc")
 	assert.Contains(t, rendered, "cancel")
 }
-

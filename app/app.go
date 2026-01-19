@@ -450,7 +450,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			m.state = stateDefault
 			selectedModel := m.modelSelectionOverlay.GetSelectedModel()
 			m.modelSelectionOverlay = nil
-			
+
 			// If a model was selected (not cancelled), create instance with that model
 			if selectedModel != "" {
 				return m.createNewInstanceWithModel(selectedModel)

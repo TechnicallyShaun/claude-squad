@@ -25,7 +25,7 @@ type ModelSelectionOverlay struct {
 func NewModelSelectionOverlay() *ModelSelectionOverlay {
 	return &ModelSelectionOverlay{
 		Dismissed:   false,
-		width:       50, // Default width
+		width:       50,                        // Default width
 		borderColor: lipgloss.Color("#7D56F4"), // Purple color for model selection
 	}
 }
