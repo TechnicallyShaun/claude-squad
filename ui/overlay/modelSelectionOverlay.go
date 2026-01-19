@@ -54,7 +54,7 @@ func (m *ModelSelectionOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
 }
 
 // Render renders the model selection overlay
-func (m *ModelSelectionOverlay) Render(opts ...WhitespaceOption) string {
+func (m *ModelSelectionOverlay) Render() string {
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(m.borderColor).

@@ -735,10 +735,17 @@ func (m *home) confirmAction(message string, action tea.Cmd) tea.Cmd {
 
 // createNewInstanceWithModel creates a new instance with the specified model program
 func (m *home) createNewInstanceWithModel(model string) (tea.Model, tea.Cmd) {
-	// Determine the program command based on the model
-	programCmd := m.program
-	if model == "claude" {
-		programCmd = "claude --dangerously-skip-permissions"
+	// Map model names to their program commands
+	// Note: claude runs with --dangerously-skip-permissions as per requirements
+	// This bypasses permission prompts but should be used with caution
+	modelCommands := map[string]string{
+		"claude": "claude --dangerously-skip-permissions",
+	}
+
+	// Get the program command for the selected model, or use the default
+	programCmd, ok := modelCommands[model]
+	if !ok {
+		programCmd = m.program
 	}
 
 	instance, err := session.NewInstance(session.InstanceOptions{
